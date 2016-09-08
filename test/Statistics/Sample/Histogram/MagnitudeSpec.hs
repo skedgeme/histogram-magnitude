@@ -42,9 +42,7 @@ spec = describe "Statistics.Sample.Histogram.Magnitude" $ do
     histBuckets (x <> y) `shouldBe` U.accum (+) (U.replicate 100 0) [(1, 2), (4, 1), (6, 1), (9, 1), (66, 1)] 
 
   describe "produces keys for given magnitues and scales" $ do
-    it "2-1" $ do
-      pendingWith "not numerically stable."
-      keys (mkHistogram 2 1) `shouldBe` U.fromList [0, 0.1 .. 9 :: Double]
+    it "2-1" $ keys (mkHistogram 2 1) `shouldBe` U.fromList [0, 0.1 .. 9.9 :: Double]
     it "2-10" $ keys (mkHistogram 2 10) `shouldBe` U.fromList [0, 1 .. 99 :: Double]
     it "1-9" $ keys (mkHistogram 1 9) `shouldBe` U.fromList [0 .. 9 :: Double]
 
