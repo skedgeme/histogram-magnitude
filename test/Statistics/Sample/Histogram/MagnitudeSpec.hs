@@ -8,6 +8,7 @@ import           Test.Hspec
 import           Test.QuickCheck
 import           Test.QuickCheck.Checkers
 import           Test.QuickCheck.Classes
+import Debug.Trace
 
 instance Arbitrary Histogram where
   arbitrary = do
@@ -76,16 +77,20 @@ spec = describe "Statistics.Sample.Histogram.Magnitude" $ do
         result = U.fromList [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1]
     histBuckets (insert (-3) x) `shouldBe` result
 
-  it "obeys monoid laws" $
-    quickCheck $ property $ \(x :: Histogram) -> checkBatch stdArgs (monoid x)
+  testBatch $ monoid (undefined :: Histogram)
 
   it "is commutable" $
-    quickCheck $ property $ isCommut ((<>) :: Histogram -> Histogram -> Histogram)
+    property $ isCommut ((<>) :: Histogram -> Histogram -> Histogram)
 
   it "has decreasing resolution on mappend" $
-    quickCheck $ \(x :: Histogram, y :: Histogram) ->
+    property $ \(x :: Histogram, y :: Histogram) ->
       histResolution (x <> y) == min (histResolution x) (histResolution y)
 
   it "has increasing magnitude on mappend" $
-    quickCheck $ \(x :: Histogram, y :: Histogram) ->
+    property $ \(x :: Histogram, y :: Histogram) ->
       histMagnitude (x <> y) == max (histMagnitude x) (histMagnitude y)
+
+testBatch :: TestBatch -> Spec
+testBatch (batchName, tests) = describe ("laws for: " ++ batchName) $
+    foldr (>>) (return ()) (map (uncurry it) tests)
+
