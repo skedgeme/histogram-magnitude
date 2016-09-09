@@ -73,8 +73,8 @@ mkHistogram res v
   where
   vec    = mkBuckets res
   mag    = magnitude (abs v)
-  bucket = floor $ (abs v) / (10 ** fromIntegral (mag + 1 - fromIntegral res))
-  nextMag = bucket == 10 ^ res
+  bucket = calcBucket res mag (abs v)
+  nextMag = bucket == bucketCeiling res
 
 mkBuckets :: Resolution -> U.Vector Int
 mkBuckets res = U.replicate (10 ^ res) 0 
@@ -157,3 +157,9 @@ genericScale to defBuckets from buckets = U.accum (+) defBuckets accums
 
 magnitude :: (RealFrac a, Floating a) => a -> Magnitude
 magnitude n = floor $ logBase 10 n
+
+calcBucket :: (RealFrac a, Floating a) => Resolution -> Magnitude -> a -> Int
+calcBucket res mag v = floor $ v / (10 ** fromIntegral (mag + 1 - fromIntegral res))
+
+bucketCeiling :: Resolution -> Int
+bucketCeiling res = 10 ^ res
