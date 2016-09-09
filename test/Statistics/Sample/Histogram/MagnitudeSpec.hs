@@ -8,7 +8,6 @@ import           Test.Hspec
 import           Test.QuickCheck
 import           Test.QuickCheck.Checkers
 import           Test.QuickCheck.Classes
-import           Test.QuickCheck.Utils
 
 instance Arbitrary Histogram where
   arbitrary = do
@@ -81,6 +80,6 @@ spec = describe "Statistics.Sample.Histogram.Magnitude" $ do
     property $ \(x :: Histogram) -> quickBatch (monoid x)
 
   it "is commutable" $
-    property $ isCommutable ((<>) :: Histogram -> Histogram -> Histogram)
+    quickCheck $ property $ isCommut ((<>) :: Histogram -> Histogram -> Histogram)
       
 
