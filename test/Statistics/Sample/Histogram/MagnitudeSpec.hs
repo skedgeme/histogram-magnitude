@@ -77,7 +77,7 @@ spec = describe "Statistics.Sample.Histogram.Magnitude" $ do
     histBuckets (insert (-3) x) `shouldBe` result
 
   it "obeys monoid laws" $
-    property $ \(x :: Histogram) -> quickBatch (monoid x)
+    quickCheck $ property $ \(x :: Histogram) -> quickBatch (monoid x)
 
   it "is commutable" $
     quickCheck $ property $ isCommut ((<>) :: Histogram -> Histogram -> Histogram)
