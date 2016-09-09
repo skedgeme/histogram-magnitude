@@ -23,7 +23,7 @@ main :: IO ()
 main = hspec spec
 
 spec :: Spec 
-spec = describe "Statistics.Sample.Histogram.Magnitude" $ do
+spec = describe "Histogram" $ do
 
   it "calculates a meaningful histogram" $ do
     let x = foldHist 1 [-3, 1, 4, 6, 9]
@@ -64,7 +64,7 @@ spec = describe "Statistics.Sample.Histogram.Magnitude" $ do
               <> U.accum (+) vec [(1, 2), (4, 1), (6, 1), (9, 1), (66, 1)]
     histBuckets (x <> y) `shouldBe` result
 
-  describe "produces keys for given magnitues and scales" $ do
+  describe "produces keys for given magnitudes and scales" $ do
     it "2-1" $
       keys (mkHistogram 2 1) `shouldBe` U.fromList (reverse [0, -0.1 .. -9.9 ] <> [0, 0.1 .. 9.9 :: Double])
     it "2-10" $
