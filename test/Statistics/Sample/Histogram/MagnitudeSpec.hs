@@ -14,7 +14,7 @@ main :: IO ()
 main = hspec spec
 
 spec :: Spec 
-spec = describe "Histogram" $ do
+spec = parallel . describe "Histogram" $ do
 
   it "calculates a meaningful histogram" $ do
     let x = foldHist 1 [-3, 1, 4, 6, 9, 9.9, 4.032, 9.2]
