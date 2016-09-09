@@ -81,5 +81,11 @@ spec = describe "Statistics.Sample.Histogram.Magnitude" $ do
 
   it "is commutable" $
     quickCheck $ property $ isCommut ((<>) :: Histogram -> Histogram -> Histogram)
-      
 
+  it "has decreasing resolution on mappend" $
+    quickCheck $ \(x :: Histogram, y :: Histogram) ->
+      histResolution (x <> y) == min (histResolution x) (histResolution y)
+
+  it "has increasing magnitude on mappend" $
+    quickCheck $ \(x :: Histogram, y :: Histogram) ->
+      histMagnitude (x <> y) == max (histMagnitude x) (histMagnitude y)
