@@ -2,30 +2,31 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Statistics.Sample.Histogram.Magnitude
   ( Histogram
-  , histResolution
-  , histMagnitude
-  , histBuckets
-  , histPositive
-  , histNegative
-  , mkHistogram
   , fromList
   , foldHist
+  , histBuckets
   , insert
   , keys
   , positiveKeys
   , negativeKeys
+  , histPositive
+  , histNegative
+  , histResolution
+  , histMagnitude
   ) where
 
 import qualified Data.Vector.Unboxed as U
 import           Data.Monoid
 
-
+-- | Create a histogram from a list
 fromList :: (RealFrac a, Floating a) => Resolution -> [a] -> Histogram
 fromList = foldHist
 
+-- | Create a histogram from any Foldable
 foldHist :: (RealFrac a, Floating a, Foldable f) => Resolution -> f a -> Histogram
 foldHist res = foldMap (mkHistogram res)
 
+-- | Insert a value into a histogram
 insert :: (RealFrac a, Floating a) => a -> Histogram -> Histogram
 insert v h = mkHistogram (histResolution h) v <> h
 

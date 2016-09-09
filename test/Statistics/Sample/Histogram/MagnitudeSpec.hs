@@ -22,10 +22,10 @@ spec = describe "Histogram" $ do
     histBuckets x `shouldBe` result
 
   describe "calculates magnitude" $ do
-    it "is -1" $ property $ \(MagN x) -> histMagnitude (mkHistogram 1 x) == -1
-    it "is 0" $ property $ \(Mag0 x) -> histMagnitude (mkHistogram 1 x) == 0
-    it "is 1" $ property $ \(Mag1 x) -> histMagnitude (mkHistogram 1 x) == 1
-    it "is 2" $ property $ \(Mag2 x) -> histMagnitude (mkHistogram 1 x) == 2
+    it "is -1" $ property $ \(MagN x) -> histMagnitude (fromList 1 [x]) == -1
+    it "is 0" $ property $ \(Mag0 x) -> histMagnitude (fromList 1 [x]) == 0
+    it "is 1" $ property $ \(Mag1 x) -> histMagnitude (fromList 1 [x]) == 1
+    it "is 2" $ property $ \(Mag2 x) -> histMagnitude (fromList 1 [x]) == 2
 
   it "blends equal resolutions and magnitudes" $ do
     let x = foldHist 1 [1, 4, 6, 9]
@@ -57,11 +57,11 @@ spec = describe "Histogram" $ do
 
   describe "produces keys for given magnitudes and scales" $ do
     it "2-1" $
-      keys (mkHistogram 2 1) `shouldBe` U.fromList (reverse [0, -0.1 .. -9.9 ] <> [0, 0.1 .. 9.9 :: Double])
+      keys (fromList 2 [1]) `shouldBe` U.fromList (reverse [0, -0.1 .. -9.9 ] <> [0, 0.1 .. 9.9 :: Double])
     it "2-10" $
-      keys (mkHistogram 2 10) `shouldBe` U.fromList ([-99, -98 .. 0] <> [0, 1 .. 99 :: Double])
+      keys (fromList 2 [10]) `shouldBe` U.fromList ([-99, -98 .. 0] <> [0, 1 .. 99 :: Double])
     it "1-9" $
-      keys (mkHistogram 1 9) `shouldBe` U.fromList ([-9, -8 .. 0] <> [0, 1 .. 9 :: Double])
+      keys (fromList 1 [9]) `shouldBe` U.fromList ([-9, -8 .. 0] <> [0, 1 .. 9 :: Double])
 
   it "allows insertion" $ do
     let x = foldHist 1 [1, 4, 6, 9]
@@ -87,9 +87,9 @@ testBatch (batchName, tests) = describe ("laws for: " ++ batchName) $
 
 instance Arbitrary Histogram where
   arbitrary = do
-    y <- arbitrary
+    ys <- arbitrary
     x <- choose (0, 3)
-    pure $ mkHistogram (fromIntegral (x :: Int)) (y :: Double)
+    pure $ fromList (fromIntegral (x :: Int)) (getNonEmpty ys :: [Double])
 
 instance EqProp Histogram where
   x =-= y = eq x y
