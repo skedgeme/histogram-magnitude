@@ -17,8 +17,8 @@ spec :: Spec
 spec = describe "Histogram" $ do
 
   it "calculates a meaningful histogram" $ do
-    let x = foldHist 1 [-3, 1, 4, 6, 9]
-        result = U.fromList [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1]
+    let x = foldHist 1 [-3, 1, 4, 6, 9, 9.9, 4.032, 9.2]
+        result = U.fromList [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 2, 0, 1, 0, 0, 3]
     histBuckets x `shouldBe` result
 
   describe "calculates magnitude" $ do
