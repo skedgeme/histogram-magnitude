@@ -1,9 +1,23 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module Statistics.Sample.Histogram.MagnitudeSpec where
 
 import qualified Data.Vector.Unboxed as U
 import           Data.Monoid
 import           Statistics.Sample.Histogram.Magnitude
 import           Test.Hspec 
+import           Test.QuickCheck
+import           Test.QuickCheck.Checkers
+import           Test.QuickCheck.Classes
+import           Test.QuickCheck.Utils
+
+instance Arbitrary Histogram where
+  arbitrary = do
+    y <- arbitrary
+    x <- suchThat arbitrary (\x -> x > -1 && x < 3)
+    pure $ mkHistogram (fromIntegral (x :: Int)) (y :: Double)
+
+instance EqProp Histogram where
+  x =-= y = eq x y
 
 main :: IO ()
 main = hspec spec
@@ -62,4 +76,11 @@ spec = describe "Statistics.Sample.Histogram.Magnitude" $ do
     let x = foldHist 1 [1, 4, 6, 9]
         result = U.fromList [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1]
     histBuckets (insert (-3) x) `shouldBe` result
+
+  it "obeys monoid laws" $
+    property $ \(x :: Histogram) -> quickBatch (monoid x)
+
+  it "is commutable" $
+    property $ isCommutable ((<>) :: Histogram -> Histogram -> Histogram)
+      
 

@@ -27,6 +27,7 @@ test-suite histogram-magnitude-test
                      , histogram-magnitude
                      , hspec
                      , QuickCheck
+                     , checkers
                      , vector
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
