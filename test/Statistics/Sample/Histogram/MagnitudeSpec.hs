@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Statistics.Sample.Histogram.MagnitudeSpec where
 
 import qualified Data.Vector.Unboxed as U
@@ -8,16 +9,6 @@ import           Test.Hspec
 import           Test.QuickCheck
 import           Test.QuickCheck.Checkers
 import           Test.QuickCheck.Classes
-import Debug.Trace
-
-instance Arbitrary Histogram where
-  arbitrary = do
-    y <- arbitrary
-    x <- suchThat arbitrary (\x -> x > -1 && x < 3)
-    pure $ mkHistogram (fromIntegral (x :: Int)) (y :: Double)
-
-instance EqProp Histogram where
-  x =-= y = eq x y
 
 main :: IO ()
 main = hspec spec
@@ -31,10 +22,10 @@ spec = describe "Histogram" $ do
     histBuckets x `shouldBe` result
 
   describe "calculates magnitude" $ do
-    -- should be quick check
-    it "0" $ histMagnitude (mkHistogram 1 1) `shouldBe` 0
-    it "1" $ histMagnitude (mkHistogram 1 19) `shouldBe` 1
-    it "2" $ histMagnitude (mkHistogram 1 123) `shouldBe` 2
+    it "is -1" $ property $ \(MagN x) -> histMagnitude (mkHistogram 1 x) == -1
+    it "is 0" $ property $ \(Mag0 x) -> histMagnitude (mkHistogram 1 x) == 0
+    it "is 1" $ property $ \(Mag1 x) -> histMagnitude (mkHistogram 1 x) == 1
+    it "is 2" $ property $ \(Mag2 x) -> histMagnitude (mkHistogram 1 x) == 2
 
   it "blends equal resolutions and magnitudes" $ do
     let x = foldHist 1 [1, 4, 6, 9]
@@ -93,4 +84,37 @@ spec = describe "Histogram" $ do
 testBatch :: TestBatch -> Spec
 testBatch (batchName, tests) = describe ("laws for: " ++ batchName) $
     foldr (>>) (return ()) (map (uncurry it) tests)
+
+instance Arbitrary Histogram where
+  arbitrary = do
+    y <- arbitrary
+    x <- choose (0, 3)
+    pure $ mkHistogram (fromIntegral (x :: Int)) (y :: Double)
+
+instance EqProp Histogram where
+  x =-= y = eq x y
+
+newtype MagN = MagN Double
+  deriving (Show, Ord, Eq, Num)
+
+instance Arbitrary MagN where
+  arbitrary = MagN <$> choose (0.1, 0.9)
+
+newtype Mag0 = Mag0 Double
+  deriving (Show, Ord, Eq, Num)
+
+instance Arbitrary Mag0 where
+  arbitrary = Mag0 <$> choose (1, 9.9)
+
+newtype Mag1 = Mag1 Double
+  deriving (Show, Ord, Eq, Num)
+
+instance Arbitrary Mag1 where
+  arbitrary = Mag1 <$> choose (10, 99.9)
+
+newtype Mag2 = Mag2 Double
+  deriving (Show, Ord, Eq, Num)
+
+instance Arbitrary Mag2 where
+  arbitrary = Mag2 <$> choose (100, 999.9)
 
