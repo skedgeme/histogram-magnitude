@@ -10,12 +10,14 @@ module Statistics.Sample.Histogram.Magnitude
   , mkHistogram
   , fromList
   , foldHist
+  , insert
   , keys
   , positiveKeys
   , negativeKeys
   ) where
 
 import qualified Data.Vector.Unboxed as U
+import           Data.Monoid
 
 
 fromList :: (RealFrac a, Floating a) => Resolution -> [a] -> Histogram
@@ -23,6 +25,9 @@ fromList = foldHist
 
 foldHist :: (RealFrac a, Floating a, Foldable f) => Resolution -> f a -> Histogram
 foldHist res = foldMap (mkHistogram res)
+
+insert :: (RealFrac a, Floating a) => a -> Histogram -> Histogram
+insert v h = mkHistogram (histResolution h) v <> h
 
 newtype Resolution = Resolution Int
   deriving (Show, Eq, Ord, Enum, Bounded, Integral, Real, Num)
@@ -39,13 +44,13 @@ data Histogram
   } deriving (Show, Eq)
 
 histBuckets :: Histogram -> U.Vector Int
-histBuckets h = U.reverse (histNegative h) `mappend` histPositive h
+histBuckets h = U.reverse (histNegative h) <> histPositive h
 
 zeroHist :: Histogram
 zeroHist = Histogram 0 0 (U.fromList [1]) mempty
 
 keys :: (U.Unbox a, Enum a, RealFrac a, Floating a) => Histogram -> U.Vector a
-keys h = U.reverse (negativeKeys h) `mappend` positiveKeys h
+keys h = U.reverse (negativeKeys h) <> positiveKeys h
 
 negativeKeys :: (U.Unbox a, Enum a, RealFrac a, Floating a) => Histogram -> U.Vector a
 negativeKeys h = U.map negate $ positiveKeys h
@@ -96,7 +101,7 @@ instance Monoid Histogram where
       | otherwise    = b `condenseInto` a
 
 condenseInto :: Histogram  -> Histogram -> Histogram
-condenseInto !a !b =  scale (histMagnitude b) a `mappend` b
+condenseInto !a !b =  scale (histMagnitude b) a <> b
 
 scale :: Magnitude -> Histogram -> Histogram
 scale mag h
@@ -118,8 +123,8 @@ scale mag h
 
 smear :: Histogram -> Histogram -> Histogram
 smear !a !b 
-  | resA <  resB = a `mappend` blur resA b
-  | otherwise    = blur resB a `mappend` b
+  | resA <  resB = a <> blur resA b
+  | otherwise    = blur resB a <> b
   where
   resA = histResolution a
   resB = histResolution b

@@ -1,9 +1,9 @@
 module Statistics.Sample.Histogram.MagnitudeSpec where
 
-import Statistics.Sample.Histogram.Magnitude
-import Test.Hspec 
 import qualified Data.Vector.Unboxed as U
-import Data.Monoid
+import           Data.Monoid
+import           Statistics.Sample.Histogram.Magnitude
+import           Test.Hspec 
 
 main :: IO ()
 main = hspec spec
@@ -57,4 +57,9 @@ spec = describe "Statistics.Sample.Histogram.Magnitude" $ do
       keys (mkHistogram 2 10) `shouldBe` U.fromList ([-99, -98 .. 0] <> [0, 1 .. 99 :: Double])
     it "1-9" $
       keys (mkHistogram 1 9) `shouldBe` U.fromList ([-9, -8 .. 0] <> [0, 1 .. 9 :: Double])
+
+  it "allows insertion" $ do
+    let x = foldHist 1 [1, 4, 6, 9]
+        result = U.fromList [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1]
+    histBuckets (insert (-3) x) `shouldBe` result
 
