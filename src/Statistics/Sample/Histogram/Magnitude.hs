@@ -5,10 +5,14 @@ module Statistics.Sample.Histogram.Magnitude
   , histResolution
   , histMagnitude
   , histBuckets
+  , histPositive
+  , histNegative
   , mkHistogram
   , fromList
   , foldHist
   , keys
+  , positiveKeys
+  , negativeKeys
   ) where
 
 import qualified Data.Vector.Unboxed as U
@@ -30,14 +34,24 @@ data Histogram
   = Histogram
   { histResolution :: !Resolution
   , histMagnitude  :: !Magnitude
-  , histBuckets    :: !(U.Vector Int) -- vector of: 10 ^ resolution
+  , histPositive   :: !(U.Vector Int) -- vector of: 10 ^ resolution
+  , histNegative   :: !(U.Vector Int) -- vector of: 10 ^ resolution
   } deriving (Show, Eq)
 
+histBuckets :: Histogram -> U.Vector Int
+histBuckets h = U.reverse (histNegative h) `mappend` histPositive h
+
 zeroHist :: Histogram
-zeroHist = Histogram 0 0 $ U.fromList [1]
+zeroHist = Histogram 0 0 (U.fromList [1]) mempty
 
 keys :: (U.Unbox a, Enum a, RealFrac a, Floating a) => Histogram -> U.Vector a
-keys h = U.take size (U.fromList [0, one .. upper])
+keys h = U.reverse (negativeKeys h) `mappend` positiveKeys h
+
+negativeKeys :: (U.Unbox a, Enum a, RealFrac a, Floating a) => Histogram -> U.Vector a
+negativeKeys h = U.map negate $ positiveKeys h
+
+positiveKeys :: (U.Unbox a, Enum a, RealFrac a, Floating a) => Histogram -> U.Vector a
+positiveKeys h = U.take size (U.fromList [0, one .. upper])
   where
   size = 10 ^ histResolution h
   one = 10 ** fromIntegral (histMagnitude h - fromIntegral (histResolution h) + 1)
@@ -45,26 +59,29 @@ keys h = U.take size (U.fromList [0, one .. upper])
 
 mkHistogram :: (RealFrac a, Floating a) => Resolution -> a -> Histogram
 mkHistogram res v
-  | v == 0             = zeroHist
-  | bucket == 10 ^ res = Histogram res (mag + 1) $ vec U.// [(0, 1)]
-  | otherwise          = Histogram res (mag) $ vec U.// [(bucket, 1)]
+  | v == 0           = zeroHist
+  | v <  0           = Histogram res (mag) vec (vec U.// [(bucket, 1)])
+  | v < 0 && nextMag = Histogram res (mag + 1) vec (vec U.// [(0, 1)])
+  | nextMag          = Histogram res (mag + 1) (vec U.// [(0, 1)]) vec
+  | otherwise        = Histogram res (mag) (vec U.// [(bucket, 1)]) vec
   where
   vec    = mkBuckets res
-  mag    = magnitude v
-  bucket = floor $ v / (10 ** fromIntegral (mag + 1 - fromIntegral res))
+  mag    = magnitude (abs v)
+  bucket = floor $ (abs v) / (10 ** fromIntegral (mag + 1 - fromIntegral res))
+  nextMag = bucket == 10 ^ res
 
 mkBuckets :: Resolution -> U.Vector Int
 mkBuckets res = U.replicate (10 ^ res) 0 
 
 -- | Commutative Monoid
 instance Monoid Histogram where
-  mempty = Histogram 0 0 mempty
+  mempty = Histogram 0 0 mempty mempty
 
   mappend !a !b
     | a == mempty   = b
     | b == mempty   = a
-    | a == zeroHist = b {histBuckets = U.accum (+) (histBuckets b) [(0, 1)] }
-    | b == zeroHist = a {histBuckets = U.accum (+) (histBuckets a) [(0, 1)] }
+    | a == zeroHist = b {histPositive = U.accum (+) (histPositive b) [(0, 1)] }
+    | b == zeroHist = a {histPositive = U.accum (+) (histPositive a) [(0, 1)] }
     | mismatchedRes = smear a b
     | otherwise     = cat
     where
@@ -72,7 +89,9 @@ instance Monoid Histogram where
     magA = histMagnitude a
     magB = histMagnitude b
     cat
-      | magA == magB = a {histBuckets = U.zipWith (+) (histBuckets a) (histBuckets b)}
+      | magA == magB = a { histPositive = U.zipWith (+) (histPositive a) (histPositive b)
+                         , histNegative = U.zipWith (+) (histNegative a) (histNegative b)
+                         }
       | magA < magB  = a `condenseInto` b
       | otherwise    = b `condenseInto` a
 
@@ -83,11 +102,16 @@ scale :: Magnitude -> Histogram -> Histogram
 scale mag h
   | mag == histMagnitude h = h
   | mag > histMagnitude h  =
-      h { histBuckets = genericScale
-                          mag
-                          (mkBuckets $ histResolution h)
-                          (histMagnitude h)
-                          (histBuckets h)
+      h { histPositive = genericScale
+                            mag
+                            (mkBuckets $ histResolution h)
+                            (histMagnitude h)
+                            (histPositive h)
+        , histNegative = genericScale
+                            mag
+                            (mkBuckets $ histResolution h)
+                            (histMagnitude h)
+                            (histNegative h)
         , histMagnitude = mag
         }
   | otherwise = error "scale: Cannot scale to a smaller magnitude"
@@ -105,11 +129,16 @@ blur res h
   | res == histResolution h = h
   | res < histResolution h  =
       h { histResolution = res
-        , histBuckets = genericScale
-                          (histResolution h)
-                          (mkBuckets res)
-                          res
-                          (histBuckets h)
+        , histPositive = genericScale
+                            (histResolution h)
+                            (mkBuckets res)
+                            res
+                            (histPositive h)
+        , histNegative = genericScale
+                            (histResolution h)
+                            (mkBuckets res)
+                            res
+                            (histNegative h)
         }
   | otherwise = error "blur: Cannot blur to a greater resolution"
 

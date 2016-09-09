@@ -12,8 +12,9 @@ spec :: Spec
 spec = describe "Statistics.Sample.Histogram.Magnitude" $ do
 
   it "calculates a meaningful histogram" $ do
-    let x = foldHist 1 [1, 4, 6, 9]
-    histBuckets x `shouldBe` U.fromList [0, 1, 0, 0, 1, 0, 1, 0, 0, 1]
+    let x = foldHist 1 [-3, 1, 4, 6, 9]
+        result = U.fromList [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1]
+    histBuckets x `shouldBe` result
 
   describe "calculates magnitude" $ do
     -- should be quick check
@@ -24,25 +25,36 @@ spec = describe "Statistics.Sample.Histogram.Magnitude" $ do
   it "blends equal resolutions and magnitudes" $ do
     let x = foldHist 1 [1, 4, 6, 9]
         y = foldHist 1 [1, 6]
-    histBuckets (x <> y) `shouldBe` U.fromList [0, 2, 0, 0, 1, 0, 2, 0, 0, 1]
+        result = U.fromList [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 1, 0, 2, 0, 0, 1]
+    histBuckets (x <> y) `shouldBe` result
 
-  it "scales non equal magnitudes" $ do
+  it "scales non equal magnitudes to the higher magnitude" $ do
     let x = foldHist 1 [1, 4, 6, 9]
         y = foldHist 1 [134, 666]
-    histBuckets (x <> y) `shouldBe` U.fromList [4, 1, 0, 0, 0, 0, 1, 0, 0, 0]
+        result = U.fromList [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 1, 0, 0, 0, 0, 1, 0, 0, 0]
+    histMagnitude (x <> y) `shouldBe` 2
+    histBuckets (x <> y) `shouldBe` result
 
-  it "blurs non equal resolutions" $ do
+  it "blurs non equal resolutions to the lower resolution" $ do
     let x = foldHist 1 [1, 4, 6, 9]
         y = foldHist 2 [1, 6.6]
-    histBuckets (x <> y) `shouldBe` U.fromList [0, 2, 0, 0, 1, 0, 2, 0, 0, 1]
+        result = U.fromList [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 1, 0, 2, 0, 0, 1]
+    histResolution (x <> y) `shouldBe` 1
+    histBuckets (x <> y) `shouldBe` result
 
   it "blurs and scales non equal resolution and magnitude" $ do
     let x = foldHist 2 [1, 4, 6, 9]
-        y = foldHist 3 [1, 66]
-    histBuckets (x <> y) `shouldBe` U.accum (+) (U.replicate 100 0) [(1, 2), (4, 1), (6, 1), (9, 1), (66, 1)] 
+        y = foldHist 3 [-17, 1, 66]
+        vec = (U.replicate 100 0)
+        result = U.accum (+) vec [(82, 1)]
+              <> U.accum (+) vec [(1, 2), (4, 1), (6, 1), (9, 1), (66, 1)]
+    histBuckets (x <> y) `shouldBe` result
 
   describe "produces keys for given magnitues and scales" $ do
-    it "2-1" $ keys (mkHistogram 2 1) `shouldBe` U.fromList [0, 0.1 .. 9.9 :: Double]
-    it "2-10" $ keys (mkHistogram 2 10) `shouldBe` U.fromList [0, 1 .. 99 :: Double]
-    it "1-9" $ keys (mkHistogram 1 9) `shouldBe` U.fromList [0 .. 9 :: Double]
+    it "2-1" $
+      keys (mkHistogram 2 1) `shouldBe` U.fromList (reverse [0, -0.1 .. -9.9 ] <> [0, 0.1 .. 9.9 :: Double])
+    it "2-10" $
+      keys (mkHistogram 2 10) `shouldBe` U.fromList ([-99, -98 .. 0] <> [0, 1 .. 99 :: Double])
+    it "1-9" $
+      keys (mkHistogram 1 9) `shouldBe` U.fromList ([-9, -8 .. 0] <> [0, 1 .. 9 :: Double])
 
