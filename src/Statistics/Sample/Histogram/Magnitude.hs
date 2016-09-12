@@ -1,5 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Statistics.Sample.Histogram.Magnitude
   ( Histogram
   , fromList
@@ -15,8 +17,11 @@ module Statistics.Sample.Histogram.Magnitude
   , histMagnitude
   ) where
 
+import           Control.DeepSeq
 import qualified Data.Vector.Unboxed as U
 import           Data.Monoid
+import           GHC.Generics (Generic)
+import           Data.Foldable (foldl')
 
 -- | Create a histogram from a list
 fromList :: (RealFrac a, Floating a) => Resolution -> [a] -> Histogram
@@ -24,17 +29,21 @@ fromList = foldHist
 
 -- | Create a histogram from any Foldable
 foldHist :: (RealFrac a, Floating a, Foldable f) => Resolution -> f a -> Histogram
-foldHist res = foldMap (mkHistogram res)
-
--- | Insert a value into a histogram
-insert :: (RealFrac a, Floating a) => a -> Histogram -> Histogram
-insert v h = mkHistogram (histResolution h) v <> h
+foldHist res = foldl' f mempty
+  where
+  f acc = if acc == mempty
+            then mkHistogram res
+            else flip insert acc
 
 newtype Resolution = Resolution Int
-  deriving (Show, Eq, Ord, Enum, Bounded, Integral, Real, Num)
+  deriving (Show, Eq, Ord, Enum, Bounded, Integral, Real, Num, Generic)
+
+instance NFData Resolution
 
 newtype Magnitude = Magnitude Int
-  deriving (Show, Eq, Ord, Enum, Bounded, Integral, Real, Num)
+  deriving (Show, Eq, Ord, Enum, Bounded, Integral, Real, Num, Generic)
+
+instance NFData Magnitude
 
 data Histogram
   = Histogram
@@ -42,13 +51,19 @@ data Histogram
   , histMagnitude  :: !Magnitude
   , histPositive   :: !(U.Vector Int) -- vector of: 10 ^ resolution
   , histNegative   :: !(U.Vector Int) -- vector of: 10 ^ resolution
-  } deriving (Show, Eq)
+  } deriving (Show, Eq, Generic)
+
+instance NFData Histogram
 
 histBuckets :: Histogram -> U.Vector Int
 histBuckets h = U.reverse (histNegative h) <> histPositive h
 
-zeroHist :: Histogram
-zeroHist = Histogram 0 0 (U.fromList [1]) mempty
+zeroHist :: Resolution -> Histogram
+zeroHist r = Histogram r 0 (U.fromList [1]) mempty
+
+isZero :: Histogram -> Bool
+isZero (Histogram _ 0 ps ns) = U.length ps == 1 && U.length ns == 0
+isZero _                    = False
 
 keys :: (U.Unbox a, Enum a, RealFrac a, Floating a) => Histogram -> U.Vector a
 keys h = U.reverse (negativeKeys h) <> positiveKeys h
@@ -65,7 +80,7 @@ positiveKeys h = U.take size (U.fromList [0, one .. upper])
 
 mkHistogram :: (RealFrac a, Floating a) => Resolution -> a -> Histogram
 mkHistogram res v
-  | v == 0           = zeroHist
+  | v == 0           = zeroHist res
   | v <  0           = Histogram res (mag) vec (vec U.// [(bucket, 1)])
   | v < 0 && nextMag = Histogram res (mag + 1) vec (vec U.// [(0, 1)])
   | nextMag          = Histogram res (mag + 1) (vec U.// [(0, 1)]) vec
@@ -79,6 +94,22 @@ mkHistogram res v
 mkBuckets :: Resolution -> U.Vector Int
 mkBuckets res = U.replicate (10 ^ res) 0 
 
+-- | Insert a value into a histogram
+insert :: forall a. (RealFrac a, Floating a) => a -> Histogram -> Histogram
+insert v h
+  | v == 0                = h { histPositive = U.accum (+) (histPositive h) [(0, 1)] }
+  | mempty == h           = error "insert: Cannot insert into mempty"
+  | isZero h              = insert (0 :: a) $ mkHistogram (histResolution h) v
+  | nextMag               = mkHistogram (histResolution h) v <> h
+  | magV == magH && v > 0 = h { histPositive = U.accum (+) (histPositive h) [(bucket, 1)] }
+  | magV == magH && v < 0 = h { histNegative = U.accum (+) (histNegative h) [(bucket, 1)] }
+  | otherwise             = mkHistogram (histResolution h) v <> h
+  where
+  magV = magnitude (abs v)
+  magH = histMagnitude h
+  bucket = calcBucket (histResolution h) magV (abs v)
+  nextMag = bucket == bucketCeiling (histResolution h)
+
 -- | Commutative Monoid
 instance Monoid Histogram where
   mempty = Histogram 0 0 mempty mempty
@@ -86,8 +117,8 @@ instance Monoid Histogram where
   mappend !a !b
     | a == mempty   = b
     | b == mempty   = a
-    | a == zeroHist = b {histPositive = U.accum (+) (histPositive b) [(0, 1)] }
-    | b == zeroHist = a {histPositive = U.accum (+) (histPositive a) [(0, 1)] }
+    | isZero a      = b {histPositive = U.accum (+) (histPositive b) [(0, 1)] }
+    | isZero b      = a {histPositive = U.accum (+) (histPositive a) [(0, 1)] }
     | mismatchedRes = smear a b
     | otherwise     = cat
     where
