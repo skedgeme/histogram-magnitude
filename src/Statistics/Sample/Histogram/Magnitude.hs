@@ -44,12 +44,14 @@ empty res = Histogram res (fromIntegral . fst $ floatRange (1 :: a)) vec vec
 newtype Resolution = Resolution Int
   deriving (Show, Eq, Ord, Enum, Bounded, Integral, Real, Num, Generic)
 
-instance NFData Resolution
+instance NFData Resolution where
+  rnf (Resolution x) = seq x ()
 
 newtype Magnitude = Magnitude Int
   deriving (Show, Eq, Ord, Enum, Bounded, Integral, Real, Num, Generic)
 
-instance NFData Magnitude
+instance NFData Magnitude where
+  rnf (Magnitude x) = seq x ()
 
 data Histogram a
   = Histogram
@@ -59,7 +61,8 @@ data Histogram a
   , histNegative   :: !(U.Vector Int) -- vector of: 10 ^ resolution
   } deriving (Show, Eq, Generic)
 
-instance NFData a => NFData (Histogram a)
+instance NFData a => NFData (Histogram a) where
+  rnf (Histogram a b c d) = seq a . seq b . seq c $ seq d ()
 
 histBuckets :: Histogram a -> U.Vector Int
 histBuckets h = U.reverse (histNegative h) <> histPositive h
