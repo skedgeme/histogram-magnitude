@@ -68,30 +68,30 @@ spec = parallel . describe "Histogram" $ do
         result = U.fromList [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1]
     histBuckets (insert (-3) x) `shouldBe` result
 
-  testBatch $ monoid (undefined :: Histogram)
+  testBatch $ monoid (undefined :: Histogram Double)
 
   it "is commutable" $
-    property $ isCommut ((<>) :: Histogram -> Histogram -> Histogram)
+    property $ isCommut ((<>) :: Histogram Double -> Histogram Double -> Histogram Double)
 
   it "has decreasing resolution on mappend" $
-    property $ \(x :: Histogram, y :: Histogram) ->
+    property $ \(x :: Histogram Double, y :: Histogram Double) ->
       histResolution (x <> y) == min (histResolution x) (histResolution y)
 
   it "has increasing magnitude on mappend" $
-    property $ \(x :: Histogram, y :: Histogram) ->
+    property $ \(x :: Histogram Double, y :: Histogram Double) ->
       histMagnitude (x <> y) == max (histMagnitude x) (histMagnitude y)
 
 testBatch :: TestBatch -> Spec
 testBatch (batchName, tests) = describe ("laws for: " ++ batchName) $
     foldr (>>) (return ()) (map (uncurry it) tests)
 
-instance Arbitrary Histogram where
+instance (RealFrac a, Floating a, Arbitrary a) => Arbitrary (Histogram a) where
   arbitrary = do
     ys <- arbitrary
     x <- choose (0, 3)
-    pure $ fromList (fromIntegral (x :: Int)) (getNonEmpty ys :: [Double])
+    pure $ fromList (fromIntegral (x :: Int)) (getNonEmpty ys :: [a])
 
-instance EqProp Histogram where
+instance EqProp a => EqProp (Histogram a) where
   x =-= y = eq x y
 
 newtype MagN = MagN Double

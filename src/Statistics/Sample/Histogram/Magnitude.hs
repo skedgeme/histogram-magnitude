@@ -8,6 +8,7 @@ module Statistics.Sample.Histogram.Magnitude
   , foldHist
   , histBuckets
   , insert
+  , empty
   , keys
   , positiveKeys
   , negativeKeys
@@ -24,16 +25,21 @@ import           GHC.Generics (Generic)
 import           Data.Foldable (foldl')
 
 -- | Create a histogram from a list
-fromList :: (RealFrac a, Floating a) => Resolution -> [a] -> Histogram
+fromList :: (RealFrac a, Floating a) => Resolution -> [a] -> Histogram a
 fromList = foldHist
 
 -- | Create a histogram from any Foldable
-foldHist :: (RealFrac a, Floating a, Foldable f) => Resolution -> f a -> Histogram
+foldHist :: (RealFrac a, Floating a, Foldable f) => Resolution -> f a -> Histogram a
 foldHist res = foldl' f mempty
   where
   f acc = if acc == mempty
             then mkHistogram res
             else flip insert acc
+
+empty :: forall a. (RealFloat a, Num a) => Resolution -> Histogram a
+empty res = Histogram res (fromIntegral . fst $ floatRange (1 :: a)) vec vec
+  where
+  vec = mkBuckets res
 
 newtype Resolution = Resolution Int
   deriving (Show, Eq, Ord, Enum, Bounded, Integral, Real, Num, Generic)
@@ -45,7 +51,7 @@ newtype Magnitude = Magnitude Int
 
 instance NFData Magnitude
 
-data Histogram
+data Histogram a
   = Histogram
   { histResolution :: !Resolution
   , histMagnitude  :: !Magnitude
@@ -53,32 +59,32 @@ data Histogram
   , histNegative   :: !(U.Vector Int) -- vector of: 10 ^ resolution
   } deriving (Show, Eq, Generic)
 
-instance NFData Histogram
+instance NFData a => NFData (Histogram a)
 
-histBuckets :: Histogram -> U.Vector Int
+histBuckets :: Histogram a -> U.Vector Int
 histBuckets h = U.reverse (histNegative h) <> histPositive h
 
-zeroHist :: Resolution -> Histogram
+zeroHist :: Resolution -> Histogram a
 zeroHist r = Histogram r 0 (U.fromList [1]) mempty
 
-isZero :: Histogram -> Bool
+isZero :: Histogram a -> Bool
 isZero (Histogram _ 0 ps ns) = U.length ps == 1 && U.length ns == 0
 isZero _                    = False
 
-keys :: (U.Unbox a, Enum a, RealFrac a, Floating a) => Histogram -> U.Vector a
+keys :: (U.Unbox a, Enum a, RealFrac a, Floating a) => Histogram a -> U.Vector a
 keys h = U.reverse (negativeKeys h) <> positiveKeys h
 
-negativeKeys :: (U.Unbox a, Enum a, RealFrac a, Floating a) => Histogram -> U.Vector a
+negativeKeys :: (U.Unbox a, Enum a, RealFrac a, Floating a) => Histogram a -> U.Vector a
 negativeKeys h = U.map negate $ positiveKeys h
 
-positiveKeys :: (U.Unbox a, Enum a, RealFrac a, Floating a) => Histogram -> U.Vector a
+positiveKeys :: (U.Unbox a, Enum a, RealFrac a, Floating a) => Histogram a -> U.Vector a
 positiveKeys h = U.take size (U.fromList [0, one .. upper])
   where
   size = 10 ^ histResolution h
   one = 10 ** fromIntegral (histMagnitude h - fromIntegral (histResolution h) + 1)
   upper = 10 ** fromIntegral (histMagnitude h + 1)
 
-mkHistogram :: (RealFrac a, Floating a) => Resolution -> a -> Histogram
+mkHistogram :: (RealFrac a, Floating a) => Resolution -> a -> Histogram a
 mkHistogram res v
   | v == 0           = zeroHist res
   | v <  0           = Histogram res (mag) vec (vec U.// [(bucket, 1)])
@@ -92,13 +98,12 @@ mkHistogram res v
   nextMag = bucket == bucketCeiling res
 
 mkBuckets :: Resolution -> U.Vector Int
-mkBuckets res = U.replicate (10 ^ res) 0 
+mkBuckets res = U.replicate (10 ^ res) 0
 
 -- | Insert a value into a histogram
-insert :: forall a. (RealFrac a, Floating a) => a -> Histogram -> Histogram
+insert :: forall a. (RealFrac a, Floating a) => a -> Histogram a -> Histogram a
 insert v h
   | v == 0                = h { histPositive = U.accum (+) (histPositive h) [(0, 1)] }
-  | mempty == h           = error "insert: Cannot insert into mempty"
   | isZero h              = insert (0 :: a) $ mkHistogram (histResolution h) v
   | nextMag               = mkHistogram (histResolution h) v <> h
   | magV == magH && v > 0 = h { histPositive = U.accum (+) (histPositive h) [(bucket, 1)] }
@@ -111,7 +116,7 @@ insert v h
   nextMag = bucket == bucketCeiling (histResolution h)
 
 -- | Commutative Monoid
-instance Monoid Histogram where
+instance Monoid (Histogram a) where
   mempty = Histogram 0 0 mempty mempty
 
   mappend !a !b
@@ -132,10 +137,10 @@ instance Monoid Histogram where
       | magA < magB  = a `condenseInto` b
       | otherwise    = b `condenseInto` a
 
-condenseInto :: Histogram  -> Histogram -> Histogram
+condenseInto :: Histogram a  -> Histogram a -> Histogram a
 condenseInto !a !b =  scale (histMagnitude b) a <> b
 
-scale :: Magnitude -> Histogram -> Histogram
+scale :: Magnitude -> Histogram a -> Histogram a
 scale mag h
   | mag == histMagnitude h = h
   | mag > histMagnitude h  =
@@ -153,7 +158,7 @@ scale mag h
         }
   | otherwise = error "scale: Cannot scale to a smaller magnitude"
 
-smear :: Histogram -> Histogram -> Histogram
+smear :: Histogram a -> Histogram a -> Histogram a
 smear !a !b 
   | resA <  resB = a <> blur resA b
   | otherwise    = blur resB a <> b
@@ -161,7 +166,7 @@ smear !a !b
   resA = histResolution a
   resB = histResolution b
 
-blur :: Resolution -> Histogram -> Histogram
+blur :: Resolution -> Histogram a -> Histogram a
 blur res h 
   | res == histResolution h = h
   | res < histResolution h  =
