@@ -36,7 +36,7 @@ foldHist res = foldl' f mempty
             then mkHistogram res
             else flip insert acc
 
-empty :: forall a. (RealFloat a, Num a) => Resolution -> Histogram a
+empty :: forall a. RealFloat a => Resolution -> Histogram a
 empty res = Histogram res (fromIntegral . fst $ floatRange (1 :: a)) vec vec
   where
   vec = mkBuckets res
@@ -62,7 +62,7 @@ data Histogram a
   } deriving (Show, Eq, Generic)
 
 instance NFData a => NFData (Histogram a) where
-  rnf (Histogram a b c d) = seq a . seq b . seq c $ seq d ()
+  rnf (Histogram a b c d) = seq (rnf a) . seq (rnf b) . seq (rnf c) $ seq (rnf d) ()
 
 histBuckets :: Histogram a -> U.Vector Int
 histBuckets h = U.reverse (histNegative h) <> histPositive h
