@@ -42,6 +42,7 @@ benchmark histogram-magnitude-criterion
                      , histogram-magnitude
                      , criterion
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+                       -O2 -fwarn-tabs -funbox-strict-fields
   default-language:    Haskell2010
 
 source-repository head

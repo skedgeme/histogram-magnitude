@@ -4,6 +4,7 @@ module Statistics.Sample.Histogram.MagnitudeSpec where
 
 import qualified Data.Vector.Unboxed as U
 import           Data.Monoid
+import           Data.Functor.Identity
 import           Statistics.Sample.Histogram.Magnitude
 import           Test.Hspec 
 import           Test.QuickCheck
@@ -80,6 +81,10 @@ spec = parallel . describe "Histogram" $ do
   it "has increasing magnitude on mappend" $
     property $ \(x :: Histogram Double, y :: Histogram Double) ->
       histMagnitude (x <> y) == max (histMagnitude x) (histMagnitude y)
+
+  it "is equivalent to mappend and insert" $
+    property $ \(xs :: [Double]) ->
+      foldHist 2 xs == foldMap (foldHist 2 . Identity) xs
 
 testBatch :: TestBatch -> Spec
 testBatch (batchName, tests) = describe ("laws for: " ++ batchName) $
